@@ -13,6 +13,8 @@ Threading model
 State machine: IDLE -> RECORDING -> PROCESSING -> IDLE
 """
 
+
+
 from __future__ import annotations
 
 import enum
