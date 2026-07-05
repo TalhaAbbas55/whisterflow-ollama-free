@@ -102,20 +102,30 @@ Edit `whisperflow/config.py`:
 
 | Setting | Default | Notes |
 |---|---|---|
-| `hotkey` | `ctrl+shift+z` | `keyboard`-library syntax |
-| `whisper_model` | `base` | `tiny`/`base`/`small`/`medium`/`large-v3` |
+| `hotkey` | `ctrl+shift+z` | e.g. `ctrl+shift+z`, `ctrl+alt+d` |
+| `whisper_model` | `small` | `tiny`/`base`/`small`/`medium`/`large-v3` (bigger = more accurate, slower) |
 | `whisper_device` | `cpu` | `cuda` for NVIDIA GPU |
 | `whisper_compute_type` | `int8` | `float16` for GPU |
+| `whisper_language` | `en` | force a language, or `None` to auto-detect |
+| `whisper_initial_prompt` | _(dev vocabulary)_ | context hint that biases transcription toward your usual vocabulary |
 | `ollama_model` | _(chosen at startup)_ | You pick from your installed models each run; this value is only a fallback for non-interactive startup (e.g. Windows autostart) |
 | `ollama_host` | `http://localhost:11434` | local Ollama server URL |
 | `history_size` | `10` | prompts kept in `~/.whisperflow_history.json` |
 
 ## Notes & troubleshooting
 
-- **`keyboard` and global hotkeys**: on **Linux/macOS** the `keyboard` library
-  requires **root/sudo** to capture global keys. On **Windows** it works without
-  admin (admin only needed to send keys to elevated apps). This app targets
-  Windows.
+- **Global hotkey**: no root/sudo needed. On **Linux** keys are read from
+  `/dev/input` via `evdev`, which works on both Wayland and X11 as long as your
+  user is in the `input` group:
+  ```bash
+  sudo usermod -aG input $USER   # then log out and back in
+  ```
+  On **Windows/macOS** the hotkey uses `pynput` and works out of the box. (On a
+  native Wayland session without `evdev` access, the `pynput` fallback only
+  fires while an X11/XWayland window is focused.)
+- **Wrong / garbled transcript**: use a bigger `whisper_model` (`small` →
+  `medium`), set `whisper_language` to your language, and tailor
+  `whisper_initial_prompt` to the words you commonly dictate.
 - **Ollama errors** (`Could not reach Ollama…`): start `ollama serve`. If you have
   no models installed, pull one (e.g. `ollama pull llama3.2:3b`) and restart.
 - **No microphone / mic in use**: the app shows an error toast and stays running;
