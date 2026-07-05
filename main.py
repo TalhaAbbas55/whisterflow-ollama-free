@@ -1,8 +1,11 @@
 """WhisperFlow entry point.
 
 Run with:
-    sudo .venv/bin/python main.py   # Linux (sudo needed for global hotkey)
-    python main.py                  # Windows
+    python main.py   # Linux, macOS and Windows, no root/sudo required
+
+On Linux the global hotkey is read from /dev/input via evdev, which works on
+both Wayland and X11 without root (your user must be in the 'input' group).
+Other platforms use pynput.
 """
 
 from __future__ import annotations

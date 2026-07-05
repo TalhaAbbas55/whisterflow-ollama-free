@@ -18,11 +18,13 @@ class Transcriber:
         device: str = "cpu",
         compute_type: str = "int8",
         language: str | None = None,
+        initial_prompt: str | None = None,
     ) -> None:
         self.model_size = model_size
         self.device = device
         self.compute_type = compute_type
         self.language = language
+        self.initial_prompt = initial_prompt
         self._model: WhisperModel | None = None
 
     def load(self) -> None:
@@ -54,6 +56,7 @@ class Transcriber:
             segments, _info = self._model.transcribe(
                 wav_path,
                 language=self.language,
+                initial_prompt=self.initial_prompt,
                 beam_size=5,
                 vad_filter=True,  # skip silence for cleaner output
             )

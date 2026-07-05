@@ -9,7 +9,8 @@
 
 faster-whisper>=1.2.1
 ollama>=0.6.2
-keyboard>=0.13.5
+pynput>=1.7.6
+evdev>=1.9; sys_platform == "linux"
 pyperclip>=1.11.0
 sounddevice>=0.5.5
 scipy>=1.18.0

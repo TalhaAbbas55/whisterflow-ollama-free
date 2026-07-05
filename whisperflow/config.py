@@ -26,14 +26,22 @@ class Config:
 
     # --- Faster-Whisper (local transcription) ------------------------------
     # model_size: tiny | base | small | medium | large-v3
-    #   - "base" is a good speed/accuracy tradeoff on CPU.
+    #   - "small" is noticeably more accurate than "base" (especially with
+    #     accented speech) and still fast enough on a modern CPU.
     # device: "cpu" or "cuda" (if you have an NVIDIA GPU + CUDA installed).
     # compute_type: "int8" (fast on CPU), "float16" (GPU), "int8_float16", etc.
-    whisper_model: str = "base"
+    whisper_model: str = "small"
     whisper_device: str = "cpu"
     whisper_compute_type: str = "int8"
     # None = auto-detect spoken language. Set e.g. "en" to force English.
-    whisper_language: str | None = None
+    # Forcing it avoids wrong-language guesses on short clips.
+    whisper_language: str | None = "en"
+    # Fed to Whisper as context before decoding; biases it toward this
+    # vocabulary/style. Tune it to what you usually dictate.
+    whisper_initial_prompt: str | None = (
+        "A software developer dictating a programming task: Python, function, "
+        "variable, API, even or odd, prime number, leap year, string, list."
+    )
 
     # --- Ollama (local LLM prompt enhancement) -----------------------------
     ollama_model: str = "qwen2.5-coder:latest"

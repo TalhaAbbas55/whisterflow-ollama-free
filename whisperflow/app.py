@@ -5,7 +5,8 @@ Threading model
 ---------------
 - The Tk root and its mainloop live on the MAIN thread. Every GUI mutation is
   marshalled there via `root.after(0, ...)`.
-- The global hotkey callback fires on the `keyboard` library's thread.
+- The global hotkey callback fires on the hotkey listener's thread
+  (evdev on Linux, pynput elsewhere — see whisperflow/hotkey.py).
 - Heavy work (Whisper + Ollama) runs on a short-lived worker thread so the UI
   never freezes.
 
@@ -18,13 +19,13 @@ import enum
 import threading
 import tkinter as tk
 
-import keyboard
 import pyperclip
 
 from .audio import AudioRecorder, AudioRecordingError
 from .config import Config
 from .enhancer import EnhancementError, PromptEnhancer
 from .history import HistoryStore
+from .hotkey import HotkeyError, create_hotkey_listener
 from .notifier import Toast
 from .overlay import MicOverlay
 from .transcriber import Transcriber, TranscriptionError
@@ -61,6 +62,7 @@ class WhisperFlowApp:
             device=self.config.whisper_device,
             compute_type=self.config.whisper_compute_type,
             language=self.config.whisper_language,
+            initial_prompt=self.config.whisper_initial_prompt,
         )
         self.enhancer = PromptEnhancer(
             model=self.config.ollama_model,
@@ -76,6 +78,7 @@ class WhisperFlowApp:
         self.overlay: MicOverlay | None = None
         self.toast: Toast | None = None
         self.tray: "TrayIcon | None" = None
+        self._hotkey_listener = None  # created in run() via create_hotkey_listener
 
     # -- GUI marshalling ----------------------------------------------------
     def _ui(self, func, *args) -> None:
@@ -85,7 +88,7 @@ class WhisperFlowApp:
 
     # -- hotkey -------------------------------------------------------------
     def _on_hotkey(self) -> None:
-        """Toggle handler. Runs on the keyboard library's thread."""
+        """Toggle handler. Runs on the hotkey listener's thread."""
         with self._state_lock:
             current = self.state
 
@@ -243,8 +246,14 @@ class WhisperFlowApp:
             )
             self.tray.start()
 
-        # 4. Register the global hotkey.
-        keyboard.add_hotkey(self.config.hotkey, self._on_hotkey)
+        # 4. Register the global hotkey (listener runs on its own thread).
+        try:
+            self._hotkey_listener = create_hotkey_listener(
+                self.config.hotkey, self._on_hotkey
+            )
+            self._hotkey_listener.start()
+        except HotkeyError as exc:
+            print(f"[app] WARNING: global hotkey unavailable: {exc}")
 
         print(
             f"[app] {self.config.app_name} ready. "
@@ -266,10 +275,12 @@ class WhisperFlowApp:
     def quit(self) -> None:
         """Tear everything down cleanly."""
         print("[app] shutting down…")
-        try:
-            keyboard.remove_hotkey(self.config.hotkey)
-        except (KeyError, ValueError):
-            pass
+        if self._hotkey_listener is not None:
+            try:
+                self._hotkey_listener.stop()
+            except Exception:
+                pass
+            self._hotkey_listener = None
         if self.recorder.is_recording:
             try:
                 self.recorder.stop()
