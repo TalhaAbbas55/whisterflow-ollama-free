@@ -140,5 +140,3 @@ Edit `whisperflow/config.py`:
 Audio is processed locally by Faster-Whisper and never uploaded. Text is sent
 only to your **local** Ollama server. The temporary WAV file is deleted after
 each transcription.
-
-
