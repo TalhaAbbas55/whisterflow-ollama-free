@@ -143,6 +143,8 @@ class AudioRecorder:
         """Write float32 audio to a temporary 16-bit PCM WAV (via scipy).
 
         Returns the path to the temp file. Caller is responsible for cleanup.
+        The clip to [-1, 1] is important: loud input can exceed the float range
+        and out-of-range samples make Whisper hallucinate.
         """
         # Convert float32 [-1, 1] to int16 for a standard PCM WAV.
         clipped = np.clip(audio, -1.0, 1.0)

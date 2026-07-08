@@ -19,10 +19,11 @@ class Config:
     # Whisper expects 16 kHz mono audio; recording at that rate avoids resampling.
     sample_rate: int = 16000
     channels: int = 1
-    # Input device for recording. None = system default. On Linux the default
-    # is often ALSA's generic "default" which may capture silence; set this to
-    # the integer index of your real mic (run tools/list_devices.py to find it).
-    input_device: int | str | None = 5
+    # Input device for recording. None = system default (recommended, and the
+    # only portable choice when sharing this app). If the default captures only
+    # silence on Linux, set this to the integer index of your real mic
+    # (run tools/list_devices.py to find it).
+    input_device: int | str | None = None
 
     # --- Faster-Whisper (local transcription) ------------------------------
     # model_size: tiny | base | small | medium | large-v3
@@ -33,6 +34,13 @@ class Config:
     whisper_model: str = "small"
     whisper_device: str = "cpu"
     whisper_compute_type: str = "int8"
+    # Decoding beam width. 5 is Whisper's accurate default. Lower it (e.g. 1 =
+    # greedy) for more speed at the cost of accuracy; on short clips the quality
+    # drop is usually noticeable, so 5 is the recommended default.
+    whisper_beam_size: int = 5
+    # CPU threads used for transcription. 0 lets the backend pick a sensible
+    # default (usually your physical core count). Override to tune.
+    whisper_cpu_threads: int = 0
     # None = auto-detect spoken language. Set e.g. "en" to force English.
     # Forcing it avoids wrong-language guesses on short clips.
     whisper_language: str | None = "en"
@@ -47,6 +55,11 @@ class Config:
     ollama_model: str = "qwen2.5-coder:latest"
     ollama_host: str = "http://localhost:11434"
     ollama_timeout: float = 120.0  # seconds
+    # How long Ollama keeps the model resident in RAM/VRAM between requests.
+    # The default (5m) makes the app feel slow after a short idle because the
+    # next dictation triggers a full cold model reload. Keeping it warm removes
+    # that stall. Use "-1" to keep it loaded until Ollama exits.
+    ollama_keep_alive: str = "30m"
 
     # --- History -----------------------------------------------------------
     history_size: int = 10
