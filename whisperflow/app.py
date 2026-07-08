@@ -65,11 +65,14 @@ class WhisperFlowApp:
             compute_type=self.config.whisper_compute_type,
             language=self.config.whisper_language,
             initial_prompt=self.config.whisper_initial_prompt,
+            beam_size=self.config.whisper_beam_size,
+            cpu_threads=self.config.whisper_cpu_threads,
         )
         self.enhancer = PromptEnhancer(
             model=self.config.ollama_model,
             host=self.config.ollama_host,
             timeout=self.config.ollama_timeout,
+            keep_alive=self.config.ollama_keep_alive,
         )
         self.history = HistoryStore(
             self.config.history_file, max_items=self.config.history_size
@@ -139,6 +142,9 @@ class WhisperFlowApp:
                     "Check the input device / try without sudo."
                 )
 
+            # Write a clipped, normalised 16-bit WAV, then transcribe it. The
+            # clip in save_wav keeps out-of-range samples from making Whisper
+            # hallucinate.
             wav_path = self.recorder.save_wav(audio)
 
             transcript = self.transcriber.transcribe(str(wav_path))
@@ -229,12 +235,18 @@ class WhisperFlowApp:
         # Show which microphone we'll record from (helps diagnose silent audio).
         print(f"[app] default input device: {self.recorder.describe_default_input()}")
 
-        # 2. Pre-load the Whisper model so the first recording isn't slow.
+        # 2. Pre-load + warm up both models so the FIRST dictation isn't slow.
+        #    - Whisper: load weights, then run one throwaway decode (the first
+        #      real decode is otherwise noticeably slower).
+        #    - Ollama: preload the model into memory in the background so it's
+        #      warm by the time the user finishes speaking, and keep it warm.
         print(f"[app] loading Whisper model '{self.config.whisper_model}'…")
         try:
             self.transcriber.load()
         except TranscriptionError as exc:
             print(f"[app] WARNING: {exc}")
+        threading.Thread(target=self.transcriber.warm_up, daemon=True).start()
+        threading.Thread(target=self.enhancer.warm_up, daemon=True).start()
 
         # 3. System tray (optional).
         if _TRAY_AVAILABLE:

@@ -102,10 +102,30 @@ class PromptEnhancer:
         model: str = "qwen2.5-coder:latest",
         host: str = "http://localhost:11434",
         timeout: float = 120.0,
+        keep_alive: str = "30m",
     ) -> None:
         self.model = model
+        self.host = host
+        self.keep_alive = keep_alive
         # An explicit client lets us point at a custom host/port.
         self.client = ollama.Client(host=host, timeout=timeout)
+
+    def warm_up(self) -> None:
+        """Preload the model into Ollama's memory so the first prompt is fast.
+
+        Ollama unloads idle models, which makes the next request pay a slow cold
+        reload. Touching the model here (and keeping it warm via keep_alive)
+        avoids that stall. Best-effort: failures are ignored.
+        """
+        try:
+            self.client.chat(
+                model=self.model,
+                messages=[{"role": "user", "content": "ok"}],
+                keep_alive=self.keep_alive,
+                options={"num_predict": 1},
+            )
+        except Exception:
+            pass
 
     def enhance(self, text: str) -> str:
         """Rewrite `text` into a polished prompt.
@@ -124,6 +144,7 @@ class PromptEnhancer:
                     {"role": "user", "content": text},
                 ],
                 options={"temperature": 0.3},
+                keep_alive=self.keep_alive,
             )
         except ollama.ResponseError as exc:
             # Most common: the model isn't pulled yet.
@@ -134,7 +155,7 @@ class PromptEnhancer:
         except Exception as exc:
             # ConnectionError etc. -> Ollama server not running.
             raise EnhancementError(
-                f"Could not reach Ollama at {self.client._client.base_url}: {exc}. "
+                f"Could not reach Ollama at {self.host}: {exc}. "
                 "Is `ollama serve` running?"
             ) from exc
 
